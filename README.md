@@ -1,22 +1,53 @@
 # Subject-Driven Generation with DreamBooth
 
-CMPE 261 project. Fine-tune Stable Diffusion so one specific subject stays the same when the text prompt changes.
+CMPE 261 project. We fine-tune Stable Diffusion so one subject stays the same when the prompt changes.
 
-A normal prompt such as "a dog on the beach" draws a new dog every time. DreamBooth takes a few photos of one subject, binds them to a unique token, and can then place that same subject in new scenes.
+"a dog on the beach" gives a new dog every time. We use a few photos of one subject and a token, `zwx`. After training, "a zwx dog on the beach" should be that same dog.
 
 ## Team
 
 - Ritwik Reddy Konuganti (019151535)
 - Naga Vijay Pavan Singampalli (019151743)
 
-## Plan
+## Repo
 
-- Backbone: Stable Diffusion v1.5, through Hugging Face Diffusers
-- Phase 1: pretrained Stable Diffusion, no fine-tuning
-- Phase 2: DreamBooth with the prior-preservation loss
-- Phase 3: DreamBooth with LoRA, plus a prior-preservation ablation
-- Data: the [DreamBooth dataset](https://github.com/google/dreambooth) (30 subjects). Evaluation uses 8 of them.
-- Metrics: DINO and CLIP-I for subject fidelity, CLIP-T for prompt fidelity
+- `data/references/` original photos for the 8 subjects
+- `data/references_512/` same photos, short side resized to 512, then center-cropped
+- `configs/subjects.py` subject list, token, and the 25 prompts
+- `notebooks/01_explore_data.ipynb` the photos, the prompts, and a few pretrained dog images
+- `scripts/generate.py` Phase 1 images and class images
+- `phase2/train.sh` training command, not run yet
+
+## Setup
+
+```bash
+python3 -m pip install -r requirements.txt
+python3 scripts/download_references.py
+python3 scripts/preprocess_references.py
+```
+
+## Phase 1
+
+Phase 1 prompts use the class name only, like `a dog on the beach`. No token.
+
+Full run is 8 subjects x 25 prompts x 4 images (800). Class images are 200 each for dog, cat, backpack, clock, teapot, and sneaker. The notebook only has four dog prompts so far: beach, snow, red hat, jungle.
+
+```bash
+python3 scripts/generate.py --phase1
+python3 scripts/generate.py --class-images
+```
+
+Images that are already saved get skipped.
+
+## Phase 2
+
+One subject at a time, on the HPC. Training reads `data/references_512/`. Class images go in `phase2/class_images/`.
+
+```bash
+SUBJECT=dog bash phase2/train.sh
+```
+
+Needs `train_dreambooth.py` from the Diffusers examples.
 
 ## Papers
 

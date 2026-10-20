@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.DS_Store
+
+# Generated images and model weights stay local. Reference photos are tracked.
+phase1/outputs/
+phase2/class_images/
+phase2/outputs/
