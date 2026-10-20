@@ -1,0 +1,68 @@
+{
+  "phase": 1,
+  "method": "pretrained",
+  "num_images": 800,
+  "dino_model": "facebook/dino-vits16",
+  "clip_model": "openai/clip-vit-base-patch32",
+  "dino": 0.35108,
+  "clip_i": 0.731947,
+  "clip_t": 0.329106,
+  "subjects": {
+    "dog": {
+      "num_images": 100,
+      "num_real": 5,
+      "dino": 0.204765,
+      "clip_i": 0.693541,
+      "clip_t": 0.330199
+    },
+    "dog2": {
+      "num_images": 100,
+      "num_real": 6,
+      "dino": 0.11474,
+      "clip_i": 0.702875,
+      "clip_t": 0.332397
+    },
+    "cat": {
+      "num_images": 100,
+      "num_real": 5,
+      "dino": 0.515897,
+      "clip_i": 0.759028,
+      "clip_t": 0.333917
+    },
+    "cat2": {
+      "num_images": 100,
+      "num_real": 5,
+      "dino": 0.506162,
+      "clip_i": 0.739773,
+      "clip_t": 0.328375
+    },
+    "backpack": {
+      "num_images": 100,
+      "num_real": 6,
+      "dino": 0.333928,
+      "clip_i": 0.777451,
+      "clip_t": 0.327412
+    },
+    "clock": {
+      "num_images": 100,
+      "num_real": 6,
+      "dino": 0.33455,
+      "clip_i": 0.746455,
+      "clip_t": 0.314301
+    },
+    "teapot": {
+      "num_images": 100,
+      "num_real": 5,
+      "dino": 0.382792,
+      "clip_i": 0.771986,
+      "clip_t": 0.355211
+    },
+    "colorful_sneaker": {
+      "num_images": 100,
+      "num_real": 5,
+      "dino": 0.415811,
+      "clip_i": 0.664469,
+      "clip_t": 0.311034
+    }
+  }
+}

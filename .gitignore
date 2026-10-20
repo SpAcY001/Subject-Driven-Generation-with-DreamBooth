@@ -2,6 +2,10 @@ __pycache__/
 *.pyc
 .ipynb_checkpoints/
 .DS_Store
+.venv/
+.wheels/
+.hf-download/
+logs/
 
 # Generated images and model weights stay local. Reference photos are tracked.
 phase1/outputs/

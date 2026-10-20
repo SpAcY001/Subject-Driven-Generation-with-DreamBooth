@@ -1,5 +1,6 @@
 torch
-diffusers
+# 0.39 matches the cluster huggingface-hub. 0.40+ asks for hub 1.x.
+diffusers==0.39.0
 transformers
 accelerate
 safetensors

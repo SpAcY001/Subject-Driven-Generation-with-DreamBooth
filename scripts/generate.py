@@ -40,9 +40,9 @@ def device():
 
 def load_pipeline():
     chosen = device()
-    # fp16 on GPU. CPU stays fp32.
+    # fp16 on the GPU. diffusers 0.39 takes torch_dtype.
     dtype = torch.float16 if chosen in {"mps", "cuda"} else torch.float32
-    pipe = StableDiffusionPipeline.from_pretrained(MODEL_ID, dtype=dtype)
+    pipe = StableDiffusionPipeline.from_pretrained(MODEL_ID, torch_dtype=dtype)
     pipe = pipe.to(chosen)
     pipe.set_progress_bar_config(disable=True)
     return pipe, chosen
