@@ -1,4 +1,5 @@
-"""Phase 1 images and class images from pretrained Stable Diffusion."""
+"""Phase 1 images and class images from pretrained Stable Diffusion, and Phase 2 images
+from the fine-tuned DreamBooth models."""
 
 import argparse
 import json
@@ -28,6 +29,8 @@ from configs.subjects import (  # noqa: E402
 
 PHASE1_DIR = ROOT / "phase1" / "outputs"
 CLASS_DIR = ROOT / "phase2" / "class_images"
+PHASE2_MODEL_DIR = ROOT / "phase2" / "outputs"
+PHASE2_DIR = ROOT / "phase2" / "samples"
 
 
 def device():
@@ -38,11 +41,11 @@ def device():
     return "cpu"
 
 
-def load_pipeline():
+def load_pipeline(model=MODEL_ID):
     chosen = device()
     # fp16 on the GPU. diffusers 0.39 takes torch_dtype.
     dtype = torch.float16 if chosen in {"mps", "cuda"} else torch.float32
-    pipe = StableDiffusionPipeline.from_pretrained(MODEL_ID, torch_dtype=dtype)
+    pipe = StableDiffusionPipeline.from_pretrained(model, torch_dtype=dtype)
     pipe = pipe.to(chosen)
     pipe.set_progress_bar_config(disable=True)
     return pipe, chosen
@@ -103,6 +106,41 @@ def phase1(pipe, subjects, prompt_indices, samples=IMAGES_PER_PROMPT):
         write_metadata(folder, metadata)
 
 
+def phase2(subjects, prompt_indices, samples=IMAGES_PER_PROMPT):
+    for subject in subjects:
+        model = PHASE2_MODEL_DIR / subject["name"]
+        if not (model / "model_index.json").is_file():
+            raise SystemExit(f"no trained model in {model.relative_to(ROOT)}. Run phase2/train.sh first.")
+        pipe, _ = load_pipeline(model)
+        rows = prompt_rows(subject)
+        if prompt_indices is not None:
+            rows = [row for row in rows if row["index"] in prompt_indices]
+        folder = PHASE2_DIR / subject["name"]
+        metadata = []
+        for row in rows:
+            for sample_index in range(samples):
+                # Same seed as the Phase 1 image, so each pair starts from the same noise
+                # and differs only by the fine-tune.
+                seed = sample_seed("phase1", subject["name"], row["index"], sample_index)
+                filename = f"p{row['index']:02d}_s{sample_index}.png"
+                path = folder / filename
+                generate_one(pipe, row["phase2"], seed, path)
+                metadata.append(
+                    {
+                        "file": filename,
+                        "prompt_index": row["index"],
+                        "sample_index": sample_index,
+                        "prompt": row["phase2"],
+                        "phase1_prompt": row["phase1"],
+                        "seed": seed,
+                    }
+                )
+        write_metadata(folder, metadata)
+        del pipe
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
+
 def class_images(pipe, names):
     for class_name in names:
         prompt = class_prompt(class_name)
@@ -128,6 +166,7 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--phase1", action="store_true")
     parser.add_argument("--class-images", action="store_true")
+    parser.add_argument("--phase2", action="store_true", help="Needs the models from phase2/train.sh.")
     parser.add_argument("--subject", action="append", dest="subjects")
     parser.add_argument("--class-name", action="append", dest="class_names")
     parser.add_argument("--prompt-index", type=int, action="append", dest="prompt_indices")
@@ -141,8 +180,21 @@ def parse_args():
 
 def main():
     args = parse_args()
-    if not (args.phase1 or args.class_images or args.smoke):
-        raise SystemExit("Choose --smoke, --phase1, and/or --class-images.")
+    if not (args.phase1 or args.class_images or args.phase2 or args.smoke):
+        raise SystemExit("Choose --smoke, --phase1, --class-images, and/or --phase2.")
+
+    if args.subjects:
+        subjects = [subject_by_name(name) for name in args.subjects]
+    else:
+        subjects = SUBJECTS
+    prompt_indices = set(args.prompt_indices) if args.prompt_indices else None
+
+    if args.phase2:
+        # Each subject has its own fine-tuned model, loaded inside phase2().
+        print(f"device={device()} models={PHASE2_MODEL_DIR.relative_to(ROOT)}")
+        phase2(subjects, prompt_indices)
+        if not (args.phase1 or args.class_images or args.smoke):
+            return
 
     pipe, chosen = load_pipeline()
     print(f"device={chosen} model={MODEL_ID}")
@@ -152,11 +204,7 @@ def main():
         return
 
     if args.phase1:
-        if args.subjects:
-            subjects = [subject_by_name(name) for name in args.subjects]
-        else:
-            subjects = SUBJECTS
-        phase1(pipe, subjects, set(args.prompt_indices) if args.prompt_indices else None)
+        phase1(pipe, subjects, prompt_indices)
 
     if args.class_images:
         names = args.class_names if args.class_names else class_names()
