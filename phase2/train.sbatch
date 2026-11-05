@@ -7,8 +7,9 @@
 #SBATCH --account=coe
 #SBATCH --partition=gpuqs
 #SBATCH --gres=gpu:a100:1
-# cs002 GPU 0 has uncorrectable ECC errors and refuses CUDA work.
-#SBATCH --exclude=cs002
+# cs002 GPU 0 has uncorrectable ECC errors and refuses CUDA work. On November 4, four
+# of our tasks also got cs001 GPUs that reported CUDA not available.
+#SBATCH --exclude=cs001,cs002
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=32G
 #SBATCH --time=02:00:00
