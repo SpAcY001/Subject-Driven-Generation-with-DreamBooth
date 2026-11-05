@@ -11,3 +11,5 @@ logs/
 phase1/outputs/
 phase2/class_images/
 phase2/outputs/
+phase2/class_png/
+phase2/samples/
