@@ -1,0 +1,69 @@
+{
+  "phase": 2,
+  "method": "dreambooth",
+  "num_images": 800,
+  "dino_model": "facebook/dino-vits16",
+  "clip_model": "openai/clip-vit-base-patch32",
+  "clip_t_prompt": "prompt without zwx, same text as Phase 1",
+  "dino": 0.647624,
+  "clip_i": 0.830442,
+  "clip_t": 0.305625,
+  "subjects": {
+    "dog": {
+      "num_images": 100,
+      "num_real": 5,
+      "dino": 0.744246,
+      "clip_i": 0.835209,
+      "clip_t": 0.305362
+    },
+    "dog2": {
+      "num_images": 100,
+      "num_real": 6,
+      "dino": 0.660425,
+      "clip_i": 0.818738,
+      "clip_t": 0.308761
+    },
+    "cat": {
+      "num_images": 100,
+      "num_real": 5,
+      "dino": 0.761978,
+      "clip_i": 0.857584,
+      "clip_t": 0.289783
+    },
+    "cat2": {
+      "num_images": 100,
+      "num_real": 5,
+      "dino": 0.751011,
+      "clip_i": 0.841824,
+      "clip_t": 0.299272
+    },
+    "backpack": {
+      "num_images": 100,
+      "num_real": 6,
+      "dino": 0.54092,
+      "clip_i": 0.8407,
+      "clip_t": 0.315606
+    },
+    "clock": {
+      "num_images": 100,
+      "num_real": 6,
+      "dino": 0.501937,
+      "clip_i": 0.820167,
+      "clip_t": 0.29072
+    },
+    "teapot": {
+      "num_images": 100,
+      "num_real": 5,
+      "dino": 0.468637,
+      "clip_i": 0.824444,
+      "clip_t": 0.329999
+    },
+    "colorful_sneaker": {
+      "num_images": 100,
+      "num_real": 5,
+      "dino": 0.751841,
+      "clip_i": 0.804874,
+      "clip_t": 0.305498
+    }
+  }
+}
