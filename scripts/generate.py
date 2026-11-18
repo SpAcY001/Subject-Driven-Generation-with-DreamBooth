@@ -1,4 +1,4 @@
-"""Phase 1 images and class images from pretrained Stable Diffusion."""
+"""Phase 1, class images, and Phase 2 images from a fine-tuned model."""
 
 import argparse
 import json
@@ -27,6 +27,7 @@ from configs.subjects import (  # noqa: E402
 )
 
 PHASE1_DIR = ROOT / "phase1" / "outputs"
+PHASE2_DIR = ROOT / "phase2" / "outputs"
 CLASS_DIR = ROOT / "phase2" / "class_images"
 
 
@@ -38,11 +39,18 @@ def device():
     return "cpu"
 
 
-def load_pipeline():
+def load_pipeline(model_path=None):
     chosen = device()
     # fp16 on the GPU. diffusers 0.39 takes torch_dtype.
     dtype = torch.float16 if chosen in {"mps", "cuda"} else torch.float32
-    pipe = StableDiffusionPipeline.from_pretrained(MODEL_ID, torch_dtype=dtype)
+    source = str(model_path) if model_path is not None else MODEL_ID
+    pipe = StableDiffusionPipeline.from_pretrained(
+        source,
+        torch_dtype=dtype,
+        local_files_only=model_path is not None,
+    )
+    # The checker replaces some samples with a black image. Leave it off.
+    pipe.safety_checker = None
     pipe = pipe.to(chosen)
     pipe.set_progress_bar_config(disable=True)
     return pipe, chosen
@@ -103,6 +111,41 @@ def phase1(pipe, subjects, prompt_indices, samples=IMAGES_PER_PROMPT):
         write_metadata(folder, metadata)
 
 
+def phase2(subjects, prompt_indices, samples=IMAGES_PER_PROMPT):
+    # Each subject has its own fine-tune. Images go in images/, next to the saved pipeline.
+    for subject in subjects:
+        model_dir = PHASE2_DIR / subject["name"]
+        if not (model_dir / "model_index.json").is_file():
+            raise SystemExit(f"No trained model for {subject['name']} in {model_dir}")
+        pipe, _chosen = load_pipeline(model_dir)
+        rows = prompt_rows(subject)
+        if prompt_indices is not None:
+            rows = [row for row in rows if row["index"] in prompt_indices]
+        folder = model_dir / "images"
+        metadata = []
+        for row in rows:
+            if "zwx" not in row["phase2"]:
+                raise SystemExit(f"Phase 2 prompt is missing zwx: {row['phase2']}")
+            for sample_index in range(samples):
+                seed = sample_seed("phase2", subject["name"], row["index"], sample_index)
+                filename = f"p{row['index']:02d}_s{sample_index}.png"
+                path = folder / filename
+                generate_one(pipe, row["phase2"], seed, path)
+                metadata.append(
+                    {
+                        "file": filename,
+                        "prompt_index": row["index"],
+                        "sample_index": sample_index,
+                        "prompt": row["phase2"],
+                        "seed": seed,
+                    }
+                )
+        write_metadata(folder, metadata)
+        del pipe
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
+
 def class_images(pipe, names):
     for class_name in names:
         prompt = class_prompt(class_name)
@@ -127,6 +170,7 @@ def class_images(pipe, names):
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--phase1", action="store_true")
+    parser.add_argument("--phase2", action="store_true")
     parser.add_argument("--class-images", action="store_true")
     parser.add_argument("--subject", action="append", dest="subjects")
     parser.add_argument("--class-name", action="append", dest="class_names")
@@ -141,11 +185,12 @@ def parse_args():
 
 def main():
     args = parse_args()
-    if not (args.phase1 or args.class_images or args.smoke):
-        raise SystemExit("Choose --smoke, --phase1, and/or --class-images.")
+    if not (args.phase1 or args.phase2 or args.class_images or args.smoke):
+        raise SystemExit("Choose --smoke, --phase1, --phase2, and/or --class-images.")
 
-    pipe, chosen = load_pipeline()
-    print(f"device={chosen} model={MODEL_ID}")
+    if args.smoke or args.phase1 or args.class_images:
+        pipe, chosen = load_pipeline()
+        print(f"device={chosen} model={MODEL_ID}")
 
     if args.smoke:
         phase1(pipe, [subject_by_name("dog")], [2], samples=1)
@@ -161,6 +206,13 @@ def main():
     if args.class_images:
         names = args.class_names if args.class_names else class_names()
         class_images(pipe, names)
+
+    if args.phase2:
+        if args.subjects:
+            subjects = [subject_by_name(name) for name in args.subjects]
+        else:
+            subjects = SUBJECTS
+        phase2(subjects, set(args.prompt_indices) if args.prompt_indices else None)
 
 
 if __name__ == "__main__":

@@ -9,15 +9,19 @@ ROOT = Path(__file__).resolve().parents[1]
 nb = new_notebook()
 nb.cells = [
     new_markdown_cell(
-        """# Data and Phase 1 baseline
+        """# Data, Phase 1, and Phase 2
 
 Eight subjects: two dogs, two cats, four objects. The pretrained model knows the word dog, but not our dog. Phase 1 has no fine-tuning. We prompt with the class only (`a dog on the beach`) and the dogs that come back are different dogs.
 
-The token is `zwx`. After fine-tuning the prompt is `a zwx dog on the beach`. Each subject gets its own model, so they can share that token.
+Phase 2 is a full DreamBooth fine-tune, one model per subject, prior preservation on. The token is `zwx`. The prompt becomes `a zwx dog on the beach`. Each subject gets its own model, so they can share that token.
+
+The first dog run was the UNet only, 800 steps, learning rate 5e-6. The beach was a beach, but the dog was often some other dog. Training the text encoder for 800 steps kept our corgi and then copied the training photos. What we kept is 400 steps at 5e-6, text encoder on, prior loss weight 1.0, 200 class images. Same settings for all eight.
 """
     ),
     new_code_cell(
-        """from pathlib import Path
+        """%matplotlib inline
+from pathlib import Path
+import json
 import sys
 
 import matplotlib.pyplot as plt
@@ -41,6 +45,7 @@ from configs.subjects import (
 REFERENCES = ROOT / "data" / "references"
 REFERENCES_512 = ROOT / "data" / "references_512"
 PHASE1 = ROOT / "phase1" / "outputs"
+PHASE2 = ROOT / "phase2" / "outputs"
 
 print("model:", MODEL_ID)
 print("token:", TOKEN)
@@ -61,6 +66,7 @@ for subject in SUBJECTS:
         f"{subject['name']:20} class={subject['class_name']:12} {subject['kind']:6} photos={len(paths)}"
     )
 print("\\n".join(rows))
+print()
 
 
 def show_grid(items, ncols, figsize):
@@ -151,6 +157,86 @@ for index in DOG_FIGURE_PROMPT_INDICES:
         raise FileNotFoundError(f"Missing Phase 1 images for {prompt}: {missing}")
     show_grid([(Image.open(path), "") for path in paths], ncols=4, figsize=(12, 3.2))
     print(prompt)
+"""
+    ),
+    new_markdown_cell(
+        """## Phase 2, our dog
+
+Same four prompts, with `zwx` in them. These come from the dog fine-tune. The corgi should stay, and the place should follow the prompt.
+"""
+    ),
+    new_code_cell(
+        """dog = subject_by_name("dog")
+rows = prompt_rows(dog)
+for index in DOG_FIGURE_PROMPT_INDICES:
+    prompt = rows[index]["phase2"]
+    paths = [PHASE2 / "dog" / "images" / f"p{index:02d}_s{sample}.png" for sample in range(4)]
+    missing = [path.name for path in paths if not path.exists()]
+    if missing:
+        raise FileNotFoundError(f"Missing Phase 2 images for {prompt}: {missing}")
+    show_grid([(Image.open(path), "") for path in paths], ncols=4, figsize=(12, 3.2))
+    print(prompt)
+"""
+    ),
+    new_markdown_cell(
+        """## The other subjects
+
+Beach prompt, four samples. First row is pretrained. Second row is that subject's own fine-tune. `dog2` is not the corgi above. The two cats are not the same cat.
+"""
+    ),
+    new_code_cell(
+        """for subject in SUBJECTS:
+    if subject["name"] == "dog":
+        continue
+    name = subject["name"]
+    row = prompt_rows(subject)[2]
+    print(name)
+    for phase, root, prompt in (
+        ("phase 1", PHASE1 / name, row["phase1"]),
+        ("phase 2", PHASE2 / name / "images", row["phase2"]),
+    ):
+        paths = [root / f"p02_s{sample}.png" for sample in range(4)]
+        missing = [path.name for path in paths if not path.exists()]
+        if missing:
+            raise FileNotFoundError(f"Missing {phase} images for {name}: {missing}")
+        show_grid(
+            [(Image.open(path), phase if sample == 0 else "") for sample, path in enumerate(paths)],
+            ncols=4,
+            figsize=(12, 3.2),
+        )
+        print(prompt)
+"""
+    ),
+    new_markdown_cell(
+        """## Scores
+
+DINO and CLIP-I compare each generated image with the real photos of that subject, then we average. CLIP-T uses the prompt stored with the image. Phase 2 prompts include `zwx`. The paper's fine-tuned Stable Diffusion numbers, for later, are DINO 0.668, CLIP-I 0.803, CLIP-T 0.305.
+
+The pngs for all 800 + 800 stay on the cluster. This notebook only shows the dog figure and the beach row.
+"""
+    ),
+    new_code_cell(
+        """def load_metrics(path):
+    return json.loads(path.read_text())
+
+
+def print_table(title, metrics):
+    print(title)
+    print(f"{'':20} {'DINO':>8} {'CLIP-I':>8} {'CLIP-T':>8}")
+    print(
+        f"{'all ' + str(metrics['num_images']):20} "
+        f"{metrics['dino']:8.3f} {metrics['clip_i']:8.3f} {metrics['clip_t']:8.3f}"
+    )
+    for subject in SUBJECTS:
+        row = metrics["subjects"][subject["name"]]
+        print(
+            f"{subject['name']:20} {row['dino']:8.3f} {row['clip_i']:8.3f} {row['clip_t']:8.3f}"
+        )
+    print()
+
+
+print_table("Phase 1, pretrained", load_metrics(ROOT / "phase1" / "metrics.json"))
+print_table("Phase 2, DreamBooth", load_metrics(ROOT / "phase2" / "metrics.json"))
 """
     ),
 ]
